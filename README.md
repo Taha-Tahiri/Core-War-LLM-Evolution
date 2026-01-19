@@ -23,9 +23,9 @@ DRQ is a self-play algorithm that:
 
 ## Features
 
-- **Multiple LLM Support**: Works with Google Gemini, OpenAI (GPT-4), Anthropic (Claude), and local models via Ollama
+- **Multiple LLM Support**: Google Gemini, OpenAI (GPT-4), Anthropic (Claude), and local models via Ollama
 - **MAP-Elites Algorithm**: Preserves behavioral diversity during evolution
-- **Complete Core War Simulator**: Full Redcode implementation with threading support
+- **Complete Core War Simulator**: Full Redcode-94 implementation with threading support
 - **Visualization Tools**: Battle replays, fitness curves, and behavioral analysis
 - **Configurable Experiments**: Adjust history length, generations, population size
 
@@ -37,133 +37,176 @@ pip install -r requirements.txt
 
 ## Configuration
 
-### Option 1: Use config.env file (recommended)
+### Step 1: Add your API key to `config.env`
 
-1. Open `config.env` in the project folder
-2. Add your API key:
+Open the `config.env` file in the project folder and add your API key:
 
 ```bash
-# For Gemini
-GEMINI_API_KEY=your-actual-api-key-here
+# For Google Gemini (recommended)
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# Or for OpenAI
+OPENAI_API_KEY=your-openai-api-key-here
+
+# Or for Anthropic
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
 ```
 
-### Option 2: Set environment variables
+> **Note**: Get your Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
+
+### Step 2: Run the experiment
 
 ```bash
-# Google Gemini (recommended for quick start)
-export GEMINI_API_KEY="your-gemini-key"
-
-# Or OpenAI
-export OPENAI_API_KEY="your-openai-key"
-
-# Or Anthropic
-export ANTHROPIC_API_KEY="your-anthropic-key"
-```
-
-For local models, ensure Ollama is running:
-```bash
-ollama serve
+python run_experiment.py --llm gemini --rounds 5
 ```
 
 ## Quick Start
 
+### Demo (no API key needed)
+
+```bash
+python run_experiment.py --demo
+```
+
+### Run Tournament Between Example Warriors
+
+```bash
+python run_experiment.py --tournament ./warriors
+```
+
+### Run DRQ Evolution with Gemini
+
+```bash
+# Quick run (5 rounds, ~10 min)
+python run_experiment.py --llm gemini --model gemini-1.5-flash --rounds 5
+
+# Full run (10 rounds, ~30 min)
+python run_experiment.py --llm gemini --model gemini-1.5-pro --rounds 10
+
+# Custom settings
+python run_experiment.py --llm gemini --rounds 10 --generations 50
+```
+
+### Python API
+
 ```python
-from drq import DigitalRedQueen
+from drq import DigitalRedQueen, DRQConfig
 from llm_interface import GeminiProvider
 
 # Initialize with Gemini
 llm = GeminiProvider(model="gemini-1.5-flash")
 
-# Create DRQ instance
-drq = DigitalRedQueen(
-    llm_provider=llm,
+# Configure the experiment
+config = DRQConfig(
     num_rounds=10,
     generations_per_round=50,
-    population_size=100
+    initial_population_size=50,
 )
 
-# Run evolution
+# Create DRQ instance and run
+drq = DigitalRedQueen(llm, config)
 champions = drq.run()
 
 # Analyze results
-drq.visualize_evolution()
+print(f"Evolved {len(champions)} champions")
 ```
 
-## Running Experiments
+## Supported LLM Providers
 
-### Demo (no API key needed)
-```bash
-python run_experiment.py --demo
-```
-
-### Run with Gemini
-```bash
-python run_experiment.py --llm gemini --model gemini-1.5-flash --rounds 5
-```
-
-### Run with Gemini Pro (more capable)
-```bash
-python run_experiment.py --llm gemini --model gemini-1.5-pro --rounds 10
-```
+| Provider | Models | API Key Variable |
+|----------|--------|------------------|
+| **Gemini** | `gemini-1.5-flash`, `gemini-1.5-pro`, `gemini-pro` | `GEMINI_API_KEY` |
+| **OpenAI** | `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo` | `OPENAI_API_KEY` |
+| **Anthropic** | `claude-3-opus`, `claude-3-sonnet`, `claude-3-haiku` | `ANTHROPIC_API_KEY` |
+| **Ollama** | `llama3`, `codellama`, `mistral` | (local, no key needed) |
 
 ### Compare Multiple LLMs
+
 ```bash
-python run_experiment.py --compare --llms gemini:gemini-1.5-flash,openai:gpt-4,anthropic:claude-3-sonnet-20240229 --rounds 5
+python run_experiment.py --compare --llms gemini:gemini-1.5-flash,openai:gpt-4 --rounds 5
 ```
 
 ## Project Structure
 
 ```
 cor wars/
-├── README.md
-├── requirements.txt
-├── corewar/
-│   ├── __init__.py
-│   ├── redcode.py      # Redcode instruction set
-│   ├── mars.py         # MARS virtual machine
-│   └── battle.py       # Battle simulation
-├── evolution/
-│   ├── __init__.py
-│   ├── map_elites.py   # Quality-diversity algorithm
-│   └── fitness.py      # Fitness evaluation
-├── llm_interface/
-│   ├── __init__.py
-│   ├── base.py         # Base LLM interface
+├── config.env              # Your API keys (not committed to git)
+├── config.env.example      # Template for API keys
+├── requirements.txt        # Python dependencies
+├── run_experiment.py       # CLI experiment runner
+├── drq.py                  # Main DRQ algorithm
+├── visualize.py            # Visualization tools
+├── corewar/                # Core War simulator
+│   ├── redcode.py          # Redcode parser & instruction set
+│   ├── mars.py             # MARS virtual machine
+│   └── battle.py           # Battle simulation
+├── evolution/              # Evolution algorithms
+│   ├── map_elites.py       # Quality-diversity algorithm
+│   └── fitness.py          # Fitness evaluation
+├── llm_interface/          # LLM providers
 │   ├── gemini_provider.py  # Google Gemini
-│   ├── openai_provider.py
-│   ├── anthropic_provider.py
-│   └── ollama_provider.py
-├── drq.py              # Main DRQ algorithm
-├── run_experiment.py   # CLI experiment runner
-├── visualize.py        # Visualization tools
-└── warriors/           # Example warriors
-    ├── imp.red
-    ├── dwarf.red
-    └── mice.red
+│   ├── openai_provider.py  # OpenAI GPT
+│   ├── anthropic_provider.py # Anthropic Claude
+│   └── ollama_provider.py  # Local models
+└── warriors/               # Example warriors
+    ├── imp.red             # Simple self-copying warrior
+    ├── dwarf.red           # Classic bomber
+    ├── mice.red            # Self-replicator
+    ├── scanner.red         # Enemy scanner
+    ├── vampire.red         # Trap planter
+    └── replicator.red      # Multi-threaded paper
+```
+
+## How DRQ Works
+
+```
+Round 0: Start with seed warriors (Imp, Dwarf)
+    │
+    ▼
+Round 1: Use LLM + MAP-Elites to evolve warrior that beats Round 0 champions
+    │
+    ▼
+Round 2: Evolve warrior that beats ALL previous champions (Round 0 + 1)
+    │
+    ▼
+Round N: Each new champion must defeat the entire history
+    │
+    ▼
+Result: Warriors become increasingly general and robust
 ```
 
 ## Redcode Reference
 
-Basic opcodes:
-- `DAT`: Data (kills process if executed)
-- `MOV`: Move (copy data)
-- `ADD`: Add
-- `SUB`: Subtract
-- `JMP`: Jump
-- `JMZ`: Jump if zero
-- `JMN`: Jump if not zero
-- `DJN`: Decrement and jump if not zero
-- `SPL`: Split (spawn new thread)
-- `CMP`/`SEQ`: Compare/Skip if equal
-- `SNE`: Skip if not equal
-- `SLT`: Skip if less than
-- `NOP`: No operation
+| Opcode | Description |
+|--------|-------------|
+| `DAT` | Data (kills process if executed) |
+| `MOV` | Move (copy data) |
+| `ADD` | Add |
+| `SUB` | Subtract |
+| `JMP` | Jump |
+| `JMZ` | Jump if zero |
+| `JMN` | Jump if not zero |
+| `DJN` | Decrement and jump if not zero |
+| `SPL` | Split (spawn new thread) |
+| `CMP`/`SEQ` | Compare/Skip if equal |
+| `SNE` | Skip if not equal |
+| `SLT` | Skip if less than |
+| `NOP` | No operation |
+
+## Output
+
+Results are saved to `./drq_output/run_YYYYMMDD_HHMMSS/`:
+- `champions/` - Evolved warrior source code
+- `round_XXX/champion.red` - Champion from each round
+- `round_XXX/metrics.json` - Fitness and behavioral metrics
+- `summary.json` - Experiment summary
+- `fitness_curves.png` - Visualization of evolution
 
 ## References
 
-- [Digital Red Queen Paper](https://pub.sakana.ai/drq/)
+- [Digital Red Queen Paper](https://pub.sakana.ai/drq/) - Original research by Sakana AI
 - [Core War Wikipedia](https://en.wikipedia.org/wiki/Core_War)
-- [Redcode Standard](http://corewar.co.uk/icws94.txt)
+- [Redcode Standard (ICWS'94)](http://corewar.co.uk/icws94.txt)
 
 ## License
 
