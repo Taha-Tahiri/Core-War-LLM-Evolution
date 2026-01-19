@@ -48,8 +48,10 @@ current_experiment = {
     "status": "idle",
     "logs": [],
     "results": None,
-    "fitness_history": [],  # Track fitness over time
-    "round_champions": [],  # Track champion fitness per round
+    "fitness_history": [],
+    "round_champions": [],
+    "round_curves": {},  # Store fitness curves per round
+    "all_warriors": [],  # Track all warriors' performance
 }
 
 HTML_TEMPLATE = """
@@ -89,38 +91,38 @@ HTML_TEMPLATE = """
                 radial-gradient(ellipse at bottom right, rgba(100, 100, 255, 0.03) 0%, transparent 50%);
         }
         
-        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
         
-        header { text-align: center; margin-bottom: 2rem; padding: 1.5rem 0; }
+        header { text-align: center; margin-bottom: 1.5rem; padding: 1rem 0; }
         
         h1 {
-            font-size: 2.5rem;
+            font-size: 2.2rem;
             font-weight: 700;
             background: linear-gradient(135deg, var(--accent) 0%, #00ccff 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.3rem;
         }
         
-        .subtitle { color: var(--text-dim); font-size: 1.1rem; }
+        .subtitle { color: var(--text-dim); font-size: 1rem; }
         
-        .main-grid {
+        .top-section {
             display: grid;
-            grid-template-columns: 350px 1fr;
+            grid-template-columns: 320px 1fr;
             gap: 1.5rem;
             margin-bottom: 1.5rem;
         }
         
-        @media (max-width: 900px) {
-            .main-grid { grid-template-columns: 1fr; }
+        @media (max-width: 1000px) {
+            .top-section { grid-template-columns: 1fr; }
         }
         
         .card {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1.5rem;
+            padding: 1.25rem;
             transition: all 0.3s ease;
         }
         
@@ -130,7 +132,7 @@ HTML_TEMPLATE = """
         }
         
         .card h2 {
-            font-size: 1.1rem;
+            font-size: 1rem;
             margin-bottom: 1rem;
             color: var(--accent);
             display: flex;
@@ -147,18 +149,18 @@ HTML_TEMPLATE = """
             box-shadow: 0 0 10px var(--accent);
         }
         
-        label { display: block; margin-bottom: 0.4rem; color: var(--text-dim); font-size: 0.85rem; }
+        label { display: block; margin-bottom: 0.3rem; color: var(--text-dim); font-size: 0.8rem; }
         
         select, input[type="number"] {
             width: 100%;
-            padding: 0.6rem 0.8rem;
+            padding: 0.5rem 0.7rem;
             background: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 8px;
             color: var(--text);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-            margin-bottom: 0.8rem;
+            font-size: 0.85rem;
+            margin-bottom: 0.7rem;
             transition: all 0.2s ease;
         }
         
@@ -173,11 +175,11 @@ HTML_TEMPLATE = """
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
-            padding: 0.75rem 1.25rem;
+            padding: 0.7rem 1rem;
             border: none;
             border-radius: 8px;
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -196,6 +198,8 @@ HTML_TEMPLATE = """
             background: var(--bg-hover);
             color: var(--text);
             border: 1px solid var(--border);
+            font-size: 0.8rem;
+            padding: 0.5rem;
         }
         
         .btn-secondary:hover { border-color: var(--accent); }
@@ -204,14 +208,14 @@ HTML_TEMPLATE = """
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1.25rem;
             margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
             gap: 1.5rem;
         }
         
-        .status-indicator { display: flex; align-items: center; gap: 0.5rem; }
+        .status-indicator { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
         
         .status-dot {
             width: 10px;
@@ -245,29 +249,21 @@ HTML_TEMPLATE = """
             transition: width 0.3s ease;
         }
         
-        .charts-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        @media (max-width: 900px) {
-            .charts-grid { grid-template-columns: 1fr; }
-        }
-        
-        .chart-container {
+        .main-chart {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1.5rem;
-            height: 300px;
+            padding: 1.25rem;
+            height: 400px;
         }
         
-        .chart-container h3 {
-            font-size: 0.95rem;
+        .main-chart h3 {
+            font-size: 1rem;
             color: var(--accent);
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
         .chart-wrapper {
@@ -275,47 +271,72 @@ HTML_TEMPLATE = """
             position: relative;
         }
         
+        .charts-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        @media (max-width: 900px) {
+            .charts-row { grid-template-columns: 1fr; }
+        }
+        
+        .small-chart {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            height: 280px;
+        }
+        
+        .small-chart h3 {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+        }
+        
         .results-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 0.75rem;
-            margin-bottom: 1rem;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
         }
         
         .result-card {
             background: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 0.75rem;
+            padding: 0.6rem;
             text-align: center;
         }
         
         .result-value {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             font-weight: 700;
             color: var(--accent);
             font-family: 'JetBrains Mono', monospace;
         }
         
-        .result-label { color: var(--text-dim); font-size: 0.75rem; margin-top: 0.2rem; }
+        .result-label { color: var(--text-dim); font-size: 0.7rem; margin-top: 0.1rem; }
         
         .log-container {
             background: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 0.75rem;
-            max-height: 200px;
+            padding: 0.6rem;
+            max-height: 150px;
             overflow-y: auto;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
         }
         
-        .log-line { padding: 0.2rem 0; border-bottom: 1px solid var(--border); }
+        .log-line { padding: 0.15rem 0; border-bottom: 1px solid var(--border); }
         .log-line:last-child { border-bottom: none; }
         .log-time { color: var(--text-dim); margin-right: 0.5rem; }
         
-        .quick-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
-        .quick-actions .btn { flex: 1; padding: 0.6rem; font-size: 0.85rem; }
+        .quick-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+        .quick-actions .btn { flex: 1; }
         
         .bottom-grid {
             display: grid;
@@ -331,24 +352,38 @@ HTML_TEMPLATE = """
             background: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 1rem;
+            padding: 0.75rem;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             white-space: pre-wrap;
             overflow-x: auto;
-            max-height: 300px;
+            max-height: 250px;
             overflow-y: auto;
         }
         
         footer {
             text-align: center;
-            padding: 2rem;
+            padding: 1.5rem;
             color: var(--text-dim);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
         
         footer a { color: var(--accent); text-decoration: none; }
         footer a:hover { text-decoration: underline; }
+        
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-right: 1rem;
+            font-size: 0.8rem;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 3px;
+            border-radius: 2px;
+        }
     </style>
 </head>
 <body>
@@ -369,27 +404,35 @@ HTML_TEMPLATE = """
                     <div class="progress-fill" id="progressFill" style="width: 0%"></div>
                 </div>
             </div>
-            <span id="progressText" style="font-family: 'JetBrains Mono', monospace; min-width: 50px;">0%</span>
-            <span id="runtimeText" style="color: var(--text-dim); font-size: 0.9rem;">--:--</span>
+            <span id="progressText" style="font-family: 'JetBrains Mono', monospace; min-width: 45px; font-size: 0.9rem;">0%</span>
+            <span id="runtimeText" style="color: var(--text-dim); font-size: 0.85rem; min-width: 50px;">--:--</span>
         </div>
         
-        <!-- Charts -->
-        <div class="charts-grid">
-            <div class="chart-container">
-                <h3>📈 Fitness Evolution</h3>
-                <div class="chart-wrapper">
-                    <canvas id="fitnessChart"></canvas>
-                </div>
+        <!-- Main Chart - DRQ Fitness Evolution -->
+        <div class="main-chart">
+            <h3>📈 DRQ Fitness Evolution (All Rounds)</h3>
+            <div class="chart-wrapper">
+                <canvas id="mainFitnessChart"></canvas>
             </div>
-            <div class="chart-container">
-                <h3>🏆 Champion Progress</h3>
+        </div>
+        
+        <!-- Secondary Charts Row -->
+        <div class="charts-row" style="margin-top: 1.5rem;">
+            <div class="small-chart">
+                <h3>🏆 Champion Fitness per Round</h3>
                 <div class="chart-wrapper">
                     <canvas id="championChart"></canvas>
                 </div>
             </div>
+            <div class="small-chart">
+                <h3>📊 Archive Coverage</h3>
+                <div class="chart-wrapper">
+                    <canvas id="archiveChart"></canvas>
+                </div>
+            </div>
         </div>
         
-        <div class="main-grid">
+        <div class="top-section">
             <!-- Configuration Card -->
             <div class="card">
                 <h2>Configuration</h2>
@@ -425,7 +468,7 @@ HTML_TEMPLATE = """
             </div>
             
             <!-- Results Card -->
-            <div class="card">
+            <div class="card" style="display: flex; flex-direction: column;">
                 <h2>Results</h2>
                 
                 <div class="results-grid">
@@ -447,7 +490,7 @@ HTML_TEMPLATE = """
                     </div>
                 </div>
                 
-                <div class="log-container" id="logContainer">
+                <div class="log-container" id="logContainer" style="flex: 1;">
                     <div class="log-line">
                         <span class="log-time">[--:--:--]</span>
                         <span>Waiting to start...</span>
@@ -459,12 +502,16 @@ HTML_TEMPLATE = """
         <!-- Bottom Section -->
         <div class="bottom-grid">
             <div class="card">
-                <h2>Champion Code</h2>
-                <div class="warrior-code" id="warriorCode">; No champion yet...</div>
+                <h2>🏅 Best Champion Code</h2>
+                <div class="warrior-code" id="warriorCode">; No champion yet...
+; Run an evolution experiment to see the evolved warrior code here.</div>
             </div>
             <div class="card">
-                <h2>Evolution Log</h2>
-                <div class="warrior-code" id="evolutionLog">Waiting for evolution to start...</div>
+                <h2>📋 Round Summary</h2>
+                <div class="warrior-code" id="roundSummary">Waiting for evolution to start...
+
+Each round will evolve a new champion that must defeat
+all previous champions (Red Queen dynamics).</div>
             </div>
         </div>
         
@@ -476,48 +523,76 @@ HTML_TEMPLATE = """
     <script>
         let pollInterval = null;
         let startTime = null;
-        let fitnessChart = null;
+        let mainFitnessChart = null;
         let championChart = null;
+        let archiveChart = null;
+        
+        // Color palette for rounds
+        const roundColors = [
+            '#8b5cf6', // Purple
+            '#f59e0b', // Amber  
+            '#10b981', // Emerald
+            '#ef4444', // Red
+            '#3b82f6', // Blue
+            '#ec4899', // Pink
+            '#14b8a6', // Teal
+            '#f97316', // Orange
+            '#8b5cf6', // Purple
+            '#06b6d4', // Cyan
+        ];
         
         // Initialize charts
         function initCharts() {
-            const chartOptions = {
+            const commonOptions = {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false },
+                    legend: { 
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: '#888',
+                            font: { size: 11 },
+                            boxWidth: 20,
+                            padding: 15,
+                        }
+                    },
                 },
                 scales: {
                     x: {
                         grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#888' }
+                        ticks: { color: '#888', font: { size: 10 } },
+                        title: { display: true, text: 'Generation', color: '#888' }
                     },
                     y: {
                         min: 0,
                         max: 1,
                         grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#888' }
+                        ticks: { color: '#888', font: { size: 10 } },
+                        title: { display: true, text: 'Best Fitness', color: '#888' }
                     }
                 }
             };
             
-            fitnessChart = new Chart(document.getElementById('fitnessChart'), {
+            // Main fitness chart - shows all rounds
+            mainFitnessChart = new Chart(document.getElementById('mainFitnessChart'), {
                 type: 'line',
                 data: {
                     labels: [],
-                    datasets: [{
-                        label: 'Best Fitness',
-                        data: [],
-                        borderColor: '#00ff88',
-                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 2,
-                    }]
+                    datasets: []
                 },
-                options: chartOptions
+                options: {
+                    ...commonOptions,
+                    plugins: {
+                        ...commonOptions.plugins,
+                        title: {
+                            display: false,
+                        }
+                    }
+                }
             });
             
+            // Champion bar chart
             championChart = new Chart(document.getElementById('championChart'), {
                 type: 'bar',
                 data: {
@@ -525,16 +600,62 @@ HTML_TEMPLATE = """
                     datasets: [{
                         label: 'Champion Fitness',
                         data: [],
-                        backgroundColor: 'rgba(0, 204, 255, 0.7)',
-                        borderColor: '#00ccff',
-                        borderWidth: 1,
+                        backgroundColor: roundColors.map(c => c + 'cc'),
+                        borderColor: roundColors,
+                        borderWidth: 2,
                     }]
                 },
                 options: {
-                    ...chartOptions,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
                     scales: {
-                        ...chartOptions.scales,
-                        y: { ...chartOptions.scales.y, beginAtZero: true }
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#888' }
+                        },
+                        y: {
+                            min: 0,
+                            max: 1,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#888' }
+                        }
+                    }
+                }
+            });
+            
+            // Archive size chart
+            archiveChart = new Chart(document.getElementById('archiveChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Archive Size',
+                        data: [],
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#888' }
+                        },
+                        y: {
+                            min: 0,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#888' }
+                        }
                     }
                 }
             });
@@ -584,11 +705,6 @@ HTML_TEMPLATE = """
             line.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
             container.appendChild(line);
             container.scrollTop = container.scrollHeight;
-            
-            // Also update evolution log
-            const evoLog = document.getElementById('evolutionLog');
-            evoLog.textContent += `\\n[${time}] ${message}`;
-            evoLog.scrollTop = evoLog.scrollHeight;
         }
         
         function updateStatus(status, progress) {
@@ -614,19 +730,46 @@ HTML_TEMPLATE = """
             return `${m}:${s.toString().padStart(2, '0')}`;
         }
         
-        function updateCharts(fitnessHistory, championFitness) {
-            // Update fitness chart
-            if (fitnessHistory && fitnessHistory.length > 0) {
-                fitnessChart.data.labels = fitnessHistory.map((_, i) => i + 1);
-                fitnessChart.data.datasets[0].data = fitnessHistory;
-                fitnessChart.update('none');
+        function updateCharts(data) {
+            // Update main fitness chart with per-round curves
+            if (data.round_curves && Object.keys(data.round_curves).length > 0) {
+                const datasets = [];
+                let maxLen = 0;
+                
+                Object.keys(data.round_curves).sort((a, b) => parseInt(a) - parseInt(b)).forEach((roundNum, idx) => {
+                    const curve = data.round_curves[roundNum];
+                    if (curve.length > maxLen) maxLen = curve.length;
+                    
+                    datasets.push({
+                        label: `Round ${parseInt(roundNum) + 1}`,
+                        data: curve,
+                        borderColor: roundColors[idx % roundColors.length],
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.2,
+                        pointRadius: 1,
+                    });
+                });
+                
+                mainFitnessChart.data.labels = Array.from({length: maxLen}, (_, i) => i);
+                mainFitnessChart.data.datasets = datasets;
+                mainFitnessChart.update('none');
             }
             
             // Update champion chart
-            if (championFitness && championFitness.length > 0) {
-                championChart.data.labels = championFitness.map((_, i) => `R${i + 1}`);
-                championChart.data.datasets[0].data = championFitness;
+            if (data.round_champions && data.round_champions.length > 0) {
+                championChart.data.labels = data.round_champions.map((_, i) => `Round ${i + 1}`);
+                championChart.data.datasets[0].data = data.round_champions;
+                championChart.data.datasets[0].backgroundColor = data.round_champions.map((_, i) => roundColors[i % roundColors.length] + 'cc');
+                championChart.data.datasets[0].borderColor = data.round_champions.map((_, i) => roundColors[i % roundColors.length]);
                 championChart.update('none');
+            }
+            
+            // Update archive chart
+            if (data.archive_history && data.archive_history.length > 0) {
+                archiveChart.data.labels = data.archive_history.map((_, i) => `R${i + 1}`);
+                archiveChart.data.datasets[0].data = data.archive_history;
+                archiveChart.update('none');
             }
         }
         
@@ -638,16 +781,19 @@ HTML_TEMPLATE = """
             
             document.getElementById('startBtn').disabled = true;
             document.getElementById('logContainer').innerHTML = '';
-            document.getElementById('evolutionLog').textContent = '';
+            document.getElementById('roundSummary').textContent = '';
             startTime = Date.now();
             
             // Reset charts
-            fitnessChart.data.labels = [];
-            fitnessChart.data.datasets[0].data = [];
-            fitnessChart.update('none');
+            mainFitnessChart.data.labels = [];
+            mainFitnessChart.data.datasets = [];
+            mainFitnessChart.update('none');
             championChart.data.labels = [];
             championChart.data.datasets[0].data = [];
             championChart.update('none');
+            archiveChart.data.labels = [];
+            archiveChart.data.datasets[0].data = [];
+            archiveChart.update('none');
             
             addLog('Starting evolution experiment...');
             updateStatus('running', 0);
@@ -683,15 +829,20 @@ HTML_TEMPLATE = """
                 const data = await response.json();
                 
                 updateStatus(data.status, data.progress);
-                
-                // Update charts
-                updateCharts(data.fitness_history, data.round_champions);
+                updateCharts(data);
                 
                 // Add new logs
                 const logContainer = document.getElementById('logContainer');
                 const existingLogs = logContainer.querySelectorAll('.log-line').length;
                 if (data.logs.length > existingLogs - 1) {
-                    data.logs.slice(existingLogs - 1).forEach(log => addLog(log));
+                    data.logs.slice(Math.max(0, existingLogs - 1)).forEach(log => {
+                        if (!log.includes('undefined')) addLog(log);
+                    });
+                }
+                
+                // Update round summary
+                if (data.round_summary) {
+                    document.getElementById('roundSummary').textContent = data.round_summary;
                 }
                 
                 if (data.status === 'complete' || data.status === 'error') {
@@ -712,7 +863,7 @@ HTML_TEMPLATE = """
             document.getElementById('bestFitness').textContent = results.best_fitness ? results.best_fitness.toFixed(3) : '-';
             document.getElementById('archiveSize').textContent = results.archive_size || '-';
             
-            if (results.improvement) {
+            if (results.improvement !== undefined) {
                 const sign = results.improvement >= 0 ? '+' : '';
                 document.getElementById('improvement').textContent = sign + (results.improvement * 100).toFixed(1) + '%';
             }
@@ -724,7 +875,6 @@ HTML_TEMPLATE = """
         
         async function runDemo() {
             document.getElementById('logContainer').innerHTML = '';
-            document.getElementById('evolutionLog').textContent = '';
             addLog('Running demo battle...');
             
             try {
@@ -747,7 +897,6 @@ HTML_TEMPLATE = """
         
         async function runTournament() {
             document.getElementById('logContainer').innerHTML = '';
-            document.getElementById('evolutionLog').textContent = '';
             addLog('Running tournament...');
             
             try {
@@ -757,13 +906,14 @@ HTML_TEMPLATE = """
                 addLog(`${data.warriors} warriors competing`);
                 addLog('---');
                 data.rankings.forEach((r, i) => {
-                    addLog(`${i + 1}. ${r.name}: ${r.points} pts (W:${r.wins} D:${r.draws} L:${r.losses})`);
+                    addLog(`${i + 1}. ${r.name}: ${r.points} pts`);
                 });
                 
                 // Update champion chart with tournament results
-                championChart.data.labels = data.rankings.map(r => r.name.substring(0, 8));
+                championChart.data.labels = data.rankings.map(r => r.name.substring(0, 10));
                 championChart.data.datasets[0].data = data.rankings.map(r => r.points);
-                championChart.data.datasets[0].label = 'Tournament Points';
+                championChart.data.datasets[0].backgroundColor = data.rankings.map((_, i) => roundColors[i % roundColors.length] + 'cc');
+                championChart.data.datasets[0].borderColor = data.rankings.map((_, i) => roundColors[i % roundColors.length]);
                 championChart.options.scales.y.max = Math.max(...data.rankings.map(r => r.points)) + 2;
                 championChart.update();
                 
@@ -852,6 +1002,9 @@ def api_start():
         "results": None,
         "fitness_history": [],
         "round_champions": [],
+        "round_curves": {},
+        "archive_history": [],
+        "round_summary": "",
     }
     
     def run_experiment():
@@ -884,6 +1037,7 @@ def api_start():
             drq = DigitalRedQueen(llm, config)
             
             initial_fitness = None
+            round_summary_lines = []
             
             for round_num in range(rounds):
                 current_experiment["logs"].append(f"Round {round_num + 1}/{rounds} starting...")
@@ -893,12 +1047,18 @@ def api_start():
                 drq.round_results.append(result)
                 drq.champions.append(result.champion)
                 
-                # Track fitness history
-                current_experiment["fitness_history"].extend(result.best_fitness_curve)
+                # Store fitness curve for this round
+                current_experiment["round_curves"][str(round_num)] = result.best_fitness_curve.copy()
                 current_experiment["round_champions"].append(result.champion_fitness)
+                current_experiment["archive_history"].append(result.archive_size)
                 
                 if initial_fitness is None and result.best_fitness_curve:
                     initial_fitness = result.best_fitness_curve[0]
+                
+                # Update round summary
+                summary_line = f"Round {round_num + 1}: {result.champion.name}\n  Fitness: {result.champion_fitness:.4f} | Archive: {result.archive_size}"
+                round_summary_lines.append(summary_line)
+                current_experiment["round_summary"] = "\n\n".join(round_summary_lines)
                 
                 current_experiment["logs"].append(
                     f"Round {round_num + 1} complete: {result.champion.name} (fitness: {result.champion_fitness:.4f})"
