@@ -144,11 +144,32 @@ print(f"Evolved {len(champions)} champions")
 python run_experiment.py --compare --llms gemini:gemini-1.5-flash,openai:gpt-4 --rounds 5
 ```
 
+### 🏆 LLM Battle Mode
+
+Run a competition where different LLMs evolve warriors, then battle each other:
+
+```bash
+# Battle between Gemini and OpenAI
+python llm_battle.py --llms gemini,openai --rounds 3
+
+# Three-way battle with specific models
+python llm_battle.py --llms gemini:gemini-1.5-flash,openai:gpt-4,anthropic:claude-3-sonnet-20240229 --rounds 3
+
+# Quick test battle
+python llm_battle.py --llms gemini,ollama:llama3 --rounds 2 --generations 5
+```
+
+The LLM Battle:
+1. Each LLM runs DRQ evolution independently
+2. Best champions from each LLM fight in a tournament
+3. Winner is the LLM whose warrior wins the most battles
+
 ## Project Structure
 
 ```
 cor wars/
 ├── app.py                  # 🌐 Web interface with real-time charts
+├── llm_battle.py           # 🏆 LLM vs LLM competition mode
 ├── config.env              # Your API keys (not committed to git)
 ├── config.env.example      # Template for API keys
 ├── requirements.txt        # Python dependencies
