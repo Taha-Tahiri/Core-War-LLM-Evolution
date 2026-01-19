@@ -23,11 +23,12 @@ DRQ is a self-play algorithm that:
 
 ## Features
 
-- **Multiple LLM Support**: Google Gemini, OpenAI (GPT-4), Anthropic (Claude), and local models via Ollama
-- **MAP-Elites Algorithm**: Preserves behavioral diversity during evolution
-- **Complete Core War Simulator**: Full Redcode-94 implementation with threading support
-- **Visualization Tools**: Battle replays, fitness curves, and behavioral analysis
-- **Configurable Experiments**: Adjust history length, generations, population size
+- **🌐 Web Interface**: Beautiful UI with real-time fitness charts and live progress
+- **🤖 Multiple LLM Support**: Google Gemini, OpenAI (GPT-4), Anthropic (Claude), and local models via Ollama
+- **📊 MAP-Elites Algorithm**: Preserves behavioral diversity during evolution
+- **⚔️ Complete Core War Simulator**: Full Redcode-94 implementation with threading support
+- **📈 Visualization Tools**: Real-time fitness curves, battle replays, and behavioral analysis
+- **⚙️ Configurable Experiments**: Adjust history length, generations, population size
 
 ## Installation
 
@@ -54,30 +55,47 @@ ANTHROPIC_API_KEY=your-anthropic-api-key-here
 
 > **Note**: Get your Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
 
-### Step 2: Run the experiment
-
-```bash
-python run_experiment.py --llm gemini --rounds 5
-```
-
 ## Quick Start
 
-### Demo (no API key needed)
+### Option 1: Web Interface (Recommended)
+
+Launch the interactive web UI:
+
+```bash
+python app.py
+```
+
+Then open **http://localhost:8080** in your browser.
+
+The web interface features:
+- 📈 **Real-time Fitness Charts** - Watch evolution progress live
+- 🏆 **Champion Progress** - Track fitness improvements per round
+- 🎮 **Demo Battle** - Quick battle between classic warriors
+- 🏆 **Tournament Mode** - Run tournaments between all warriors
+- 📝 **Live Logs** - See detailed evolution progress
+- 💾 **Champion Code Viewer** - View evolved warrior source code
+
+### Option 2: Command Line
+
+#### Demo (no API key needed)
 
 ```bash
 python run_experiment.py --demo
 ```
 
-### Run Tournament Between Example Warriors
+#### Run Tournament Between Example Warriors
 
 ```bash
 python run_experiment.py --tournament ./warriors
 ```
 
-### Run DRQ Evolution with Gemini
+#### Run DRQ Evolution with Gemini
 
 ```bash
-# Quick run (5 rounds, ~10 min)
+# Quick test run (2 rounds, ~2 min)
+python run_experiment.py --llm gemini --quick
+
+# Standard run (5 rounds, ~10 min)
 python run_experiment.py --llm gemini --model gemini-1.5-flash --rounds 5
 
 # Full run (10 rounds, ~30 min)
@@ -100,7 +118,7 @@ llm = GeminiProvider(model="gemini-1.5-flash")
 config = DRQConfig(
     num_rounds=10,
     generations_per_round=50,
-    initial_population_size=50,
+    initial_population_size=10,
 )
 
 # Create DRQ instance and run
@@ -130,6 +148,7 @@ python run_experiment.py --compare --llms gemini:gemini-1.5-flash,openai:gpt-4 -
 
 ```
 cor wars/
+├── app.py                  # 🌐 Web interface with real-time charts
 ├── config.env              # Your API keys (not committed to git)
 ├── config.env.example      # Template for API keys
 ├── requirements.txt        # Python dependencies
@@ -201,6 +220,11 @@ Results are saved to `./drq_output/run_YYYYMMDD_HHMMSS/`:
 - `round_XXX/metrics.json` - Fitness and behavioral metrics
 - `summary.json` - Experiment summary
 - `fitness_curves.png` - Visualization of evolution
+
+## Screenshots
+
+### Web Interface
+The web interface provides real-time visualization of the evolution process with interactive charts showing fitness progression and champion improvements.
 
 ## References
 
