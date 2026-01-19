@@ -26,8 +26,8 @@ class DRQConfig:
     # Evolution parameters
     num_rounds: int = 10                    # Number of DRQ rounds
     generations_per_round: int = 50         # Generations of MAP-Elites per round
-    initial_population_size: int = 50       # Initial random warriors per round
-    batch_size: int = 10                    # Warriors to generate per generation
+    initial_population_size: int = 10       # Initial random warriors per round (reduced for speed)
+    batch_size: int = 5                     # Warriors to generate per generation
     
     # History parameters
     history_length: int = -1                # -1 = full history, >0 = last K champions
@@ -35,11 +35,11 @@ class DRQConfig:
     # Battle configuration
     core_size: int = 8000
     max_cycles: int = 80000
-    battles_per_evaluation: int = 5
+    battles_per_evaluation: int = 3         # Reduced for speed
     
     # MAP-Elites behavior space
-    memory_coverage_bins: int = 10
-    threads_spawned_bins: int = 10
+    memory_coverage_bins: int = 5           # Reduced for smaller archive
+    threads_spawned_bins: int = 5
     max_threads_expected: int = 100
     
     # LLM generation
@@ -215,9 +215,10 @@ class DigitalRedQueen:
                 fitness_curve.append(best.fitness)
             
             if self.config.verbose and (gen + 1) % 10 == 0:
+                best_fitness = best.fitness if best else 0.0
                 print(
                     f"  Gen {gen + 1}: archive={len(map_elites.archive)}, "
-                    f"updates={updates}, best={best.fitness:.4f if best else 0:.4f}"
+                    f"updates={updates}, best={best_fitness:.4f}"
                 )
         
         # Get the champion

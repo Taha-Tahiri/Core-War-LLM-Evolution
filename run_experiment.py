@@ -332,6 +332,12 @@ Examples:
     )
     
     parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Quick run with minimal settings (faster, for testing)",
+    )
+    
+    parser.add_argument(
         "--llm",
         type=str,
         choices=["openai", "anthropic", "ollama", "gemini"],
@@ -411,11 +417,20 @@ Examples:
         )
         
     elif args.llm:
+        # Use quick settings if requested
+        if args.quick:
+            rounds = 2
+            generations = 5
+            print("🚀 Quick mode: 2 rounds, 5 generations (for testing)")
+        else:
+            rounds = args.rounds
+            generations = args.generations
+        
         run_single_experiment(
             provider_name=args.llm,
             model=args.model,
-            num_rounds=args.rounds,
-            generations=args.generations,
+            num_rounds=rounds,
+            generations=generations,
             output_dir=args.output,
         )
         
