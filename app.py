@@ -54,6 +54,16 @@ current_experiment = {
     "all_warriors": [],  # Track all warriors' performance
 }
 
+# Global state for LLM Battle
+current_battle = {
+    "running": False,
+    "progress": 0,
+    "status": "idle",
+    "logs": [],
+    "results": None,
+    "llm_results": {},  # Results per LLM
+}
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -465,6 +475,30 @@ HTML_TEMPLATE = """
                     <button class="btn btn-secondary" onclick="runDemo()">🎮 Demo</button>
                     <button class="btn btn-secondary" onclick="runTournament()">🏆 Tournament</button>
                 </div>
+                
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <h3 style="font-size: 0.9rem; color: var(--warning); margin-bottom: 0.75rem;">⚔️ LLM Battle Mode</h3>
+                    <label for="battleLlms" style="font-size: 0.75rem;">Select LLMs to Battle</label>
+                    <div id="llmCheckboxes" style="margin-bottom: 0.7rem;">
+                        <label style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; font-size: 0.8rem; cursor: pointer;">
+                            <input type="checkbox" id="battle_gemini" value="gemini" checked> Gemini
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; font-size: 0.8rem; cursor: pointer;">
+                            <input type="checkbox" id="battle_openai" value="openai"> OpenAI
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; font-size: 0.8rem; cursor: pointer;">
+                            <input type="checkbox" id="battle_anthropic" value="anthropic"> Anthropic
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; font-size: 0.8rem; cursor: pointer;">
+                            <input type="checkbox" id="battle_ollama" value="ollama"> Ollama (Local)
+                        </label>
+                    </div>
+                    <label for="battleRounds">Battle Rounds</label>
+                    <input type="number" id="battleRounds" value="2" min="1" max="10">
+                    <button class="btn btn-primary" id="battleBtn" onclick="startBattle()" style="background: linear-gradient(135deg, var(--warning) 0%, #ff7b00 100%);">
+                        ⚔️ Start LLM Battle
+                    </button>
+                </div>
             </div>
             
             <!-- Results Card -->
@@ -499,6 +533,20 @@ HTML_TEMPLATE = """
             </div>
         </div>
         
+        <!-- LLM Battle Results Section (hidden by default) -->
+        <div id="battleResultsSection" style="display: none; margin-bottom: 1.5rem;">
+            <div class="card" style="background: linear-gradient(135deg, rgba(255, 165, 2, 0.1) 0%, rgba(255, 100, 0, 0.05) 100%);">
+                <h2 style="color: var(--warning);">⚔️ LLM Battle Results</h2>
+                <div id="battleLeaderboard" style="margin-bottom: 1rem;"></div>
+                <div class="small-chart" style="height: 220px; background: var(--bg-dark);">
+                    <h3 style="font-size: 0.85rem;">LLM Performance Comparison</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="battleChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Bottom Section -->
         <div class="bottom-grid">
             <div class="card">
@@ -522,10 +570,12 @@ all previous champions (Red Queen dynamics).</div>
     
     <script>
         let pollInterval = null;
+        let battlePollInterval = null;
         let startTime = null;
         let mainFitnessChart = null;
         let championChart = null;
         let archiveChart = null;
+        let battleChart = null;
         
         // Color palette for rounds
         const roundColors = [
@@ -659,6 +709,42 @@ all previous champions (Red Queen dynamics).</div>
                     }
                 }
             });
+            
+            // Battle comparison chart
+            const battleCanvas = document.getElementById('battleChart');
+            if (battleCanvas) {
+                battleChart = new Chart(battleCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Tournament Points',
+                            data: [],
+                            backgroundColor: roundColors.map(c => c + 'cc'),
+                            borderColor: roundColors,
+                            borderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#888' }
+                            },
+                            y: {
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#888', font: { size: 11 } }
+                            }
+                        }
+                    }
+                });
+            }
         }
         
         initCharts();
@@ -922,6 +1008,130 @@ all previous champions (Red Queen dynamics).</div>
                 addLog('Error: ' + e.message);
             }
         }
+        
+        async function startBattle() {
+            // Get selected LLMs
+            const llms = [];
+            if (document.getElementById('battle_gemini').checked) llms.push('gemini');
+            if (document.getElementById('battle_openai').checked) llms.push('openai');
+            if (document.getElementById('battle_anthropic').checked) llms.push('anthropic');
+            if (document.getElementById('battle_ollama').checked) llms.push('ollama');
+            
+            if (llms.length < 2) {
+                alert('Please select at least 2 LLMs to battle!');
+                return;
+            }
+            
+            const rounds = document.getElementById('battleRounds').value;
+            
+            document.getElementById('battleBtn').disabled = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('logContainer').innerHTML = '';
+            document.getElementById('battleResultsSection').style.display = 'none';
+            startTime = Date.now();
+            
+            addLog('⚔️ Starting LLM Battle...');
+            addLog(`Competitors: ${llms.join(' vs ')}`);
+            updateStatus('running', 0);
+            
+            try {
+                const response = await fetch('/api/battle/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({llms, rounds: parseInt(rounds)})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addLog('Evolution phase starting...');
+                    battlePollInterval = setInterval(pollBattleStatus, 1000);
+                } else {
+                    addLog('Error: ' + data.error);
+                    updateStatus('error', 0);
+                    document.getElementById('battleBtn').disabled = false;
+                    document.getElementById('startBtn').disabled = false;
+                }
+            } catch (e) {
+                addLog('Error: ' + e.message);
+                updateStatus('error', 0);
+                document.getElementById('battleBtn').disabled = false;
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+        
+        async function pollBattleStatus() {
+            try {
+                const response = await fetch('/api/battle/status');
+                const data = await response.json();
+                
+                updateStatus(data.status, data.progress);
+                
+                // Add new logs
+                const logContainer = document.getElementById('logContainer');
+                const existingLogs = logContainer.querySelectorAll('.log-line').length;
+                if (data.logs && data.logs.length > existingLogs - 1) {
+                    data.logs.slice(Math.max(0, existingLogs - 1)).forEach(log => {
+                        if (!log.includes('undefined')) addLog(log);
+                    });
+                }
+                
+                if (data.status === 'complete' || data.status === 'error') {
+                    clearInterval(battlePollInterval);
+                    document.getElementById('battleBtn').disabled = false;
+                    document.getElementById('startBtn').disabled = false;
+                    
+                    if (data.results && data.results.rankings) {
+                        showBattleResults(data.results);
+                    }
+                }
+            } catch (e) {
+                console.error('Battle poll error:', e);
+            }
+        }
+        
+        function showBattleResults(results) {
+            document.getElementById('battleResultsSection').style.display = 'block';
+            
+            // Create leaderboard HTML
+            const medals = ['🥇', '🥈', '🥉'];
+            let leaderboardHtml = '<div style="display: grid; gap: 0.5rem;">';
+            
+            results.rankings.forEach((r, i) => {
+                const medal = i < 3 ? medals[i] : '';
+                const bgColor = i === 0 ? 'rgba(255, 215, 0, 0.15)' : 'var(--bg-dark)';
+                leaderboardHtml += `
+                    <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem; background: ${bgColor}; border-radius: 6px; border: 1px solid var(--border);">
+                        <span style="font-size: 1.2rem; width: 2rem; text-align: center;">${medal || (i + 1)}</span>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: ${i === 0 ? 'var(--warning)' : 'var(--text)'};">${r.name}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">Fitness: ${r.fitness ? r.fitness.toFixed(4) : 'N/A'}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace;">${r.points} pts</div>
+                            <div style="font-size: 0.7rem; color: var(--text-dim);">${r.wins}W ${r.draws}D ${r.losses}L</div>
+                        </div>
+                    </div>
+                `;
+            });
+            leaderboardHtml += '</div>';
+            
+            document.getElementById('battleLeaderboard').innerHTML = leaderboardHtml;
+            
+            // Update battle chart
+            if (battleChart) {
+                battleChart.data.labels = results.rankings.map(r => r.name);
+                battleChart.data.datasets[0].data = results.rankings.map(r => r.points);
+                battleChart.data.datasets[0].backgroundColor = results.rankings.map((_, i) => roundColors[i % roundColors.length] + 'cc');
+                battleChart.data.datasets[0].borderColor = results.rankings.map((_, i) => roundColors[i % roundColors.length]);
+                battleChart.update();
+            }
+            
+            // Show winner in log
+            if (results.rankings.length > 0) {
+                addLog(`🏆 WINNER: ${results.rankings[0].name} with ${results.rankings[0].points} points!`);
+            }
+        }
     </script>
 </body>
 </html>
@@ -1097,6 +1307,176 @@ def api_start():
 def api_status():
     """Get current experiment status."""
     return jsonify(current_experiment)
+
+
+@app.route('/api/battle/start', methods=['POST'])
+def api_battle_start():
+    """Start an LLM battle."""
+    global current_battle
+    
+    if current_battle["running"]:
+        return jsonify({"success": False, "error": "Battle already running"})
+    
+    data = request.json
+    llms = data.get("llms", ["gemini"])
+    rounds = int(data.get("rounds", 2))
+    
+    if len(llms) < 2:
+        return jsonify({"success": False, "error": "Need at least 2 LLMs"})
+    
+    current_battle = {
+        "running": True,
+        "progress": 0,
+        "status": "running",
+        "logs": [],
+        "results": None,
+        "llm_results": {},
+    }
+    
+    def run_battle():
+        global current_battle
+        try:
+            from drq import DigitalRedQueen, DRQConfig
+            
+            llm_warriors = {}  # LLM name -> best warrior
+            llm_fitness = {}   # LLM name -> final fitness
+            total_llms = len(llms)
+            
+            # Evolution phase - each LLM evolves warriors
+            for idx, llm_name in enumerate(llms):
+                current_battle["logs"].append(f"🤖 {llm_name.upper()} starting evolution...")
+                current_battle["progress"] = (idx / (total_llms + 1)) * 100
+                
+                try:
+                    # Get LLM provider
+                    if llm_name == "gemini":
+                        from llm_interface import GeminiProvider
+                        llm = GeminiProvider(model="gemini-1.5-flash")
+                    elif llm_name == "openai":
+                        from llm_interface import OpenAIProvider
+                        llm = OpenAIProvider(model="gpt-4")
+                    elif llm_name == "anthropic":
+                        from llm_interface import AnthropicProvider
+                        llm = AnthropicProvider(model="claude-3-sonnet-20240229")
+                    else:
+                        from llm_interface import OllamaProvider
+                        llm = OllamaProvider(model="llama3")
+                    
+                    config = DRQConfig(
+                        num_rounds=rounds,
+                        generations_per_round=8,
+                        initial_population_size=6,
+                        batch_size=4,
+                        verbose=False,
+                    )
+                    
+                    drq = DigitalRedQueen(llm, config)
+                    
+                    # Run evolution
+                    for round_num in range(rounds):
+                        result = drq._run_round(round_num)
+                        drq.round_results.append(result)
+                        drq.champions.append(result.champion)
+                        current_battle["logs"].append(
+                            f"  {llm_name}: Round {round_num + 1} - fitness {result.champion_fitness:.4f}"
+                        )
+                    
+                    # Store best warrior
+                    if drq.champions:
+                        llm_warriors[llm_name] = drq.champions[-1]
+                        llm_fitness[llm_name] = drq.round_results[-1].champion_fitness
+                        current_battle["logs"].append(f"✅ {llm_name.upper()} complete: {drq.champions[-1].name}")
+                    
+                except Exception as e:
+                    current_battle["logs"].append(f"❌ {llm_name.upper()} failed: {str(e)}")
+            
+            # Tournament phase
+            current_battle["logs"].append("---")
+            current_battle["logs"].append("⚔️ TOURNAMENT PHASE")
+            current_battle["progress"] = 90
+            
+            if len(llm_warriors) < 2:
+                current_battle["logs"].append("Not enough successful evolutions for tournament")
+                current_battle["status"] = "error"
+                return
+            
+            # Run head-to-head battles
+            battle = Battle(core_size=8000, max_cycles=80000, num_rounds=10)
+            scores = {name: {"wins": 0, "losses": 0, "draws": 0, "points": 0} 
+                      for name in llm_warriors.keys()}
+            
+            llm_list = list(llm_warriors.keys())
+            for i, llm1 in enumerate(llm_list):
+                for j, llm2 in enumerate(llm_list):
+                    if i >= j:
+                        continue
+                    
+                    warrior1 = llm_warriors[llm1]
+                    warrior2 = llm_warriors[llm2]
+                    
+                    result = battle.run([warrior1, warrior2])
+                    
+                    if result.winner_id == 0:
+                        scores[llm1]["wins"] += 1
+                        scores[llm1]["points"] += 3
+                        scores[llm2]["losses"] += 1
+                        winner = llm1
+                    elif result.winner_id == 1:
+                        scores[llm2]["wins"] += 1
+                        scores[llm2]["points"] += 3
+                        scores[llm1]["losses"] += 1
+                        winner = llm2
+                    else:
+                        scores[llm1]["draws"] += 1
+                        scores[llm1]["points"] += 1
+                        scores[llm2]["draws"] += 1
+                        scores[llm2]["points"] += 1
+                        winner = "Draw"
+                    
+                    current_battle["logs"].append(f"  {llm1} vs {llm2}: {winner}")
+            
+            # Create rankings
+            rankings = sorted(
+                [
+                    {
+                        "name": name, 
+                        "points": s["points"], 
+                        "wins": s["wins"], 
+                        "draws": s["draws"], 
+                        "losses": s["losses"],
+                        "fitness": llm_fitness.get(name, 0),
+                    }
+                    for name, s in scores.items()
+                ],
+                key=lambda x: (x["points"], x["fitness"]),
+                reverse=True
+            )
+            
+            current_battle["results"] = {"rankings": rankings}
+            current_battle["status"] = "complete"
+            current_battle["progress"] = 100
+            current_battle["logs"].append("---")
+            current_battle["logs"].append(f"🏆 WINNER: {rankings[0]['name']}!")
+            
+        except Exception as e:
+            current_battle["status"] = "error"
+            current_battle["logs"].append(f"Error: {str(e)}")
+            import traceback
+            current_battle["logs"].append(traceback.format_exc())
+        finally:
+            current_battle["running"] = False
+    
+    thread = threading.Thread(target=run_battle)
+    thread.start()
+    
+    return jsonify({"success": True})
+
+
+@app.route('/api/battle/status')
+def api_battle_status():
+    """Get current battle status."""
+    return jsonify(current_battle)
+
 
 if __name__ == '__main__':
     port = 8080
