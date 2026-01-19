@@ -1,0 +1,23 @@
+# Digital Red Queen - Core War LLM Evolution
+# Core dependencies
+numpy>=1.24.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+tqdm>=4.65.0
+
+# LLM providers
+openai>=1.0.0
+anthropic>=0.18.0
+
+# Optional: Local LLM support via Ollama
+httpx>=0.24.0
+
+# Data handling
+pandas>=2.0.0
+
+# Visualization
+rich>=13.0.0
+plotly>=5.15.0
+
+# For embeddings and analysis
+scikit-learn>=1.3.0
