@@ -23,7 +23,7 @@ DRQ is a self-play algorithm that:
 
 ## Features
 
-- **Multiple LLM Support**: Works with OpenAI (GPT-4), Anthropic (Claude), and local models via Ollama
+- **Multiple LLM Support**: Works with Google Gemini, OpenAI (GPT-4), Anthropic (Claude), and local models via Ollama
 - **MAP-Elites Algorithm**: Preserves behavioral diversity during evolution
 - **Complete Core War Simulator**: Full Redcode implementation with threading support
 - **Visualization Tools**: Battle replays, fitness curves, and behavioral analysis
@@ -37,10 +37,26 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Set up your API keys:
+### Option 1: Use config.env file (recommended)
+
+1. Open `config.env` in the project folder
+2. Add your API key:
 
 ```bash
+# For Gemini
+GEMINI_API_KEY=your-actual-api-key-here
+```
+
+### Option 2: Set environment variables
+
+```bash
+# Google Gemini (recommended for quick start)
+export GEMINI_API_KEY="your-gemini-key"
+
+# Or OpenAI
 export OPENAI_API_KEY="your-openai-key"
+
+# Or Anthropic
 export ANTHROPIC_API_KEY="your-anthropic-key"
 ```
 
@@ -53,10 +69,10 @@ ollama serve
 
 ```python
 from drq import DigitalRedQueen
-from llm_interface import OpenAIProvider
+from llm_interface import GeminiProvider
 
-# Initialize with your preferred LLM
-llm = OpenAIProvider(model="gpt-4")
+# Initialize with Gemini
+llm = GeminiProvider(model="gemini-1.5-flash")
 
 # Create DRQ instance
 drq = DigitalRedQueen(
@@ -75,14 +91,24 @@ drq.visualize_evolution()
 
 ## Running Experiments
 
-### Single LLM Evolution
+### Demo (no API key needed)
 ```bash
-python run_experiment.py --llm openai --model gpt-4 --rounds 10
+python run_experiment.py --demo
+```
+
+### Run with Gemini
+```bash
+python run_experiment.py --llm gemini --model gemini-1.5-flash --rounds 5
+```
+
+### Run with Gemini Pro (more capable)
+```bash
+python run_experiment.py --llm gemini --model gemini-1.5-pro --rounds 10
 ```
 
 ### Compare Multiple LLMs
 ```bash
-python run_experiment.py --compare --llms openai,anthropic,ollama --rounds 10
+python run_experiment.py --compare --llms gemini:gemini-1.5-flash,openai:gpt-4,anthropic:claude-3-sonnet-20240229 --rounds 5
 ```
 
 ## Project Structure
@@ -103,6 +129,7 @@ cor wars/
 ├── llm_interface/
 │   ├── __init__.py
 │   ├── base.py         # Base LLM interface
+│   ├── gemini_provider.py  # Google Gemini
 │   ├── openai_provider.py
 │   ├── anthropic_provider.py
 │   └── ollama_provider.py

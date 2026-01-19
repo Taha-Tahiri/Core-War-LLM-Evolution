@@ -22,7 +22,30 @@ from pathlib import Path
 from datetime import datetime
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, PROJECT_ROOT)
+
+# Load environment variables from config.env
+def load_env():
+    """Load API keys from config.env file."""
+    env_file = os.path.join(PROJECT_ROOT, "config.env")
+    if os.path.exists(env_file):
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(env_file)
+        except ImportError:
+            # Fallback: manual parsing if dotenv not installed
+            with open(env_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip()
+                        if value and not value.startswith("your-"):
+                            os.environ[key] = value
+
+load_env()
 
 from corewar.redcode import Warrior, parse_warrior, WARRIORS
 from corewar.battle import Battle
@@ -40,7 +63,7 @@ def get_llm_provider(provider_name: str, model: str = None):
     Get an LLM provider by name.
     
     Args:
-        provider_name: One of 'openai', 'anthropic', 'ollama'
+        provider_name: One of 'openai', 'anthropic', 'ollama', 'gemini'
         model: Optional model name
         
     Returns:
@@ -62,6 +85,11 @@ def get_llm_provider(provider_name: str, model: str = None):
         from llm_interface import OllamaProvider
         model = model or "llama3"
         return OllamaProvider(model=model)
+    
+    elif provider_name == "gemini":
+        from llm_interface import GeminiProvider
+        model = model or "gemini-1.5-flash"
+        return GeminiProvider(model=model)
         
     else:
         raise ValueError(f"Unknown provider: {provider_name}")
@@ -138,6 +166,7 @@ def run_single_experiment(
         print("\nMake sure you have the required API key set:")
         print("  export OPENAI_API_KEY='your-key'")
         print("  export ANTHROPIC_API_KEY='your-key'")
+        print("  export GEMINI_API_KEY='your-key'")
         print("Or for Ollama, make sure it's running: ollama serve")
         return
     
@@ -305,7 +334,7 @@ Examples:
     parser.add_argument(
         "--llm",
         type=str,
-        choices=["openai", "anthropic", "ollama"],
+        choices=["openai", "anthropic", "ollama", "gemini"],
         help="LLM provider to use",
     )
     

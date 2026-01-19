@@ -9,6 +9,7 @@ from .base import LLMProvider, WarriorGenerator
 from .openai_provider import OpenAIProvider
 from .anthropic_provider import AnthropicProvider
 from .ollama_provider import OllamaProvider
+from .gemini_provider import GeminiProvider
 
 __all__ = [
     "LLMProvider",
@@ -16,4 +17,5 @@ __all__ = [
     "OpenAIProvider",
     "AnthropicProvider",
     "OllamaProvider",
+    "GeminiProvider",
 ]
